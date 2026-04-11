@@ -1,14 +1,54 @@
 import { useState, useEffect } from 'react'
-import { getSetting, setSetting, CHECK_IN_SLOTS } from '../db'
+import { getSetting, setSetting, CHECK_IN_SLOTS, getAllEntries, addEntry } from '../db'
 
 export default function Settings() {
   const [notifEnabled, setNotifEnabled] = useState(false)
   const [notifStatus, setNotifStatus] = useState('unknown')
   const [saved, setSaved] = useState(false)
+  const [importStatus, setImportStatus] = useState('')
 
   useEffect(() => {
     checkNotifications()
   }, [])
+
+  async function exportData() {
+    const entries = await getAllEntries()
+    const json = JSON.stringify(entries, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `gut-tracker-backup-${new Date().toISOString().split('T')[0]}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function handleImport(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const text = await file.text()
+      const entries = JSON.parse(text)
+      if (!Array.isArray(entries)) {
+        setImportStatus('❌ Invalid format')
+        return
+      }
+      let imported = 0
+      for (const entry of entries) {
+        try {
+          await addEntry(entry)
+          imported++
+        } catch (err) {
+          // Skip entries that already exist or are invalid
+        }
+      }
+      setImportStatus(`✓ Imported ${imported} entries`)
+      setTimeout(() => setImportStatus(''), 3000)
+      e.target.value = ''
+    } catch (err) {
+      setImportStatus('❌ Failed to import')
+    }
+  }
 
   async function checkNotifications() {
     if (!('Notification' in window)) {
@@ -129,12 +169,24 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Data info */}
+      {/* Data backup/restore */}
       <div style={s.card}>
-        <div style={s.cardTitle}>💾 Your Data</div>
+        <div style={s.cardTitle}>💾 Backup & Restore</div>
         <div style={s.cardBody}>
-          All data is stored <strong>on this device</strong> only. Nothing is sent to any server. Use the Weekly Report tab to export your data for Claude analysis.
+          All data is stored <strong>on this device</strong> only. Backup your entries before switching devices.
         </div>
+        <button style={s.enableBtn} onClick={exportData}>
+          📥 Download Backup
+        </button>
+        <label style={{ ...s.enableBtn, marginTop: 8, display: 'block', cursor: 'pointer', textAlign: 'center', padding: '14px', background: '#F1F5F9', color: '#4F46E5', border: '2px solid #C7D2FE' }}>
+          📤 Import Backup
+          <input type="file" accept=".json" onChange={handleImport} style={{ display: 'none' }} />
+        </label>
+        {importStatus && (
+          <div style={{ marginTop: 10, fontSize: 13, color: importStatus.startsWith('✓') ? '#16A34A' : '#DC2626', fontWeight: 600 }}>
+            {importStatus}
+          </div>
+        )}
       </div>
 
       {/* Updates */}
