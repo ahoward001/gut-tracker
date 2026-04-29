@@ -42,9 +42,9 @@ export default function History({ refreshKey }) {
   // Full history calendar grid — shows 18 months of data
   const today = new Date()
   const calStart = new Date(today)
-  calStart.setDate(calStart.getDate() - 540) // ~18 months back
+  calStart.setDate(calStart.getDate() - 30) // 30 days back
   const calDays = []
-  for (let i = 0; i < 550; i++) {
+  for (let i = 0; i < 38; i++) {
     const d = new Date(calStart)
     d.setDate(calStart.getDate() + i)
     calDays.push(toDateString(d))
