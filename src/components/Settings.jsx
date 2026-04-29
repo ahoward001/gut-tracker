@@ -6,6 +6,8 @@ export default function Settings() {
   const [notifStatus, setNotifStatus] = useState('unknown')
   const [saved, setSaved] = useState(false)
   const [importStatus, setImportStatus] = useState('')
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
+  const [resetStatus, setResetStatus] = useState('')
 
   useEffect(() => {
     checkNotifications()
@@ -50,6 +52,21 @@ export default function Settings() {
     }
   }
 
+  async function resetAllData() {
+    try {
+      // Delete and recreate the IndexedDB
+      indexedDB.deleteDatabase('gut-tracker-db')
+      setResetStatus('✓ All data cleared')
+      setShowResetConfirm(false)
+      setTimeout(() => {
+        setResetStatus('')
+        window.location.reload()
+      }, 1500)
+    } catch (err) {
+      setResetStatus('❌ Failed to clear data')
+    }
+  }
+
   async function checkNotifications() {
     if (!('Notification' in window)) {
       setNotifStatus('unsupported')
@@ -71,10 +88,8 @@ export default function Settings() {
   }
 
   function scheduleNotifications() {
-    // Schedule via service worker if available
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.ready.then(reg => {
-        // Periodic sync for background notifications (Android Chrome PWA)
         if ('periodicSync' in reg) {
           reg.periodicSync.register('gut-check-in', { minInterval: 30 * 60 * 1000 })
             .catch(() => { /* not available */ })
@@ -99,18 +114,14 @@ export default function Settings() {
   }
 
   async function checkForUpdates() {
-    // Clear service worker cache and reload
     if ('serviceWorker' in navigator) {
-      // Unregister all service workers
       const registrations = await navigator.serviceWorker.getRegistrations()
       for (const reg of registrations) {
         await reg.unregister()
       }
-      // Clear caches
       const cacheNames = await caches.keys()
       await Promise.all(cacheNames.map(name => caches.delete(name)))
     }
-    // Reload without cache
     window.location.reload(true)
   }
 
@@ -159,7 +170,7 @@ export default function Settings() {
       <div style={s.card}>
         <div style={s.cardTitle}>📱 Install on Your Phone</div>
         <div style={s.steps}>
-          <div style={s.step}><span style={s.stepNum}>1</span><span>Open this URL in your phone's browser (Safari on iPhone, Chrome on Android)</span></div>
+          <div style={s.step}><span style={s.stepNum}>1</span><span>Open this URL in Safari: <strong>ahoward001.github.io/gut-tracker</strong></span></div>
           <div style={s.step}><span style={s.stepNum}>2</span><span><strong>iPhone:</strong> Tap the Share button (box with arrow) → "Add to Home Screen"</span></div>
           <div style={s.step}><span style={s.stepNum}>2</span><span><strong>Android:</strong> Tap ⋮ menu → "Add to Home screen" or "Install app"</span></div>
           <div style={s.step}><span style={s.stepNum}>3</span><span>Launch from your home screen — it'll run like a native app with no browser bar</span></div>
@@ -185,6 +196,38 @@ export default function Settings() {
         {importStatus && (
           <div style={{ marginTop: 10, fontSize: 13, color: importStatus.startsWith('✓') ? '#16A34A' : '#DC2626', fontWeight: 600 }}>
             {importStatus}
+          </div>
+        )}
+      </div>
+
+      {/* Reset data */}
+      <div style={s.card}>
+        <div style={s.cardTitle}>🗑️ Reset All Data</div>
+        <div style={s.cardBody}>
+          Wipes all logged entries and starts fresh. <strong>This cannot be undone.</strong>
+        </div>
+        {!showResetConfirm ? (
+          <button style={{ ...s.enableBtn, background: '#FEF2F2', color: '#DC2626', border: '2px solid #FCA5A5', marginTop: 12 }} onClick={() => setShowResetConfirm(true)}>
+            Reset All Data
+          </button>
+        ) : (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#DC2626', marginBottom: 10 }}>
+              Are you sure? All data will be permanently deleted.
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button style={{ flex: 1, padding: '12px', background: '#DC2626', color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }} onClick={resetAllData}>
+                Yes, reset
+              </button>
+              <button style={{ flex: 1, padding: '12px', background: '#F1F5F9', color: '#64748B', border: '2px solid #E2E8F0', borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }} onClick={() => setShowResetConfirm(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+        {resetStatus && (
+          <div style={{ marginTop: 10, fontSize: 13, color: resetStatus.startsWith('✓') ? '#16A34A' : '#DC2626', fontWeight: 600 }}>
+            {resetStatus}
           </div>
         )}
       </div>
